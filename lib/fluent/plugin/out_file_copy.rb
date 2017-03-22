@@ -11,7 +11,7 @@ module Fluent
     config_param :filename, :string
 
     desc "Time format used for log output"
-    config_param :time_format, :string, default: "%y-%m-%dT%H:%M:%S.%LZ"
+    config_param :time_format, :string, default: "%Y-%m-%dT%H:%M:%S.%3N%z"
 
     TAG_MATCH_REGEX = /\${([\w-]+)}/
     DATE_MATCH_REGEX = /%[YmdHM]/
@@ -58,7 +58,7 @@ module Fluent
     end
 
     def format(tag, time, record)
-      [tag, time, record].to_msgpack
+      [tag, Time.at(time.to_r).to_f, record].to_msgpack
     end
 
     def path_for_record(record)
