@@ -14,7 +14,7 @@ module Fluent
     config_param :time_format, :string, default: "%Y-%m-%dT%H:%M:%S.%3N%z"
 
     TAG_MATCH_REGEX = /\${([\w-]+)}/
-    DATE_MATCH_REGEX = /%[YmdHM]/
+    DATE_MATCH_REGEX = /%([YymdHM])/
 
     FILE_PERMISSION = 0644
     DIR_PERMISSION = 0755
@@ -62,12 +62,18 @@ module Fluent
     end
 
     def path_for_record(record)
-      filename.gsub(TAG_MATCH_REGEX) do |tag|
+      filename.gsub(TAG_MATCH_REGEX) do
+        tag = Regexp.last_match[1]
         if record.has_key?(tag)
-          tag[record]
+          record[tag]
         else
-          "#{tag}-MISSING"
+          "#{tag}.MISSING"
         end
+      end.gsub(DATE_MATCH_REGEX) do
+        Time.now.utc.strftime("%#{Regexp.last_match[1]}")
+      end
+    end
+
     def format_record(time, record)
       time_formatted = begin
         Time.at(time).to_datetime.strftime(time_format)
