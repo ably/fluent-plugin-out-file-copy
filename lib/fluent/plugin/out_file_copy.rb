@@ -3,6 +3,7 @@ module Fluent
     Fluent::Plugin.register_output('file_copy', self)
 
     attr_reader :directory, :filename, :time_format
+    attr_reader :dir_perm, :file_perm
 
     desc "The directory path of the output files"
     config_param :directory, :string
@@ -110,9 +111,10 @@ module Fluent
       end
 
       output.each do |path, data|
-        dir = File.join(directory, path)
-        FileUtils.mkdir_p dir unless File.folder?(dir)
-        File.open(path, 'a') {|f| f.write(data.join('\n')) }
+        out_path = File.join(directory, path)
+        out_dir = File.dirname(out_path)
+        FileUtils.mkdir_p(out_dir, mode: dir_perm) unless File.directory?(out_dir)
+        File.open(out_path, 'a', file_perm) {|f| f.write(data.join("\n")) }
       end
     end
   end
