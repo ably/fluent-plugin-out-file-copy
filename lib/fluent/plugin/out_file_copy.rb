@@ -19,6 +19,30 @@ module Fluent
     FILE_PERMISSION = 0644
     DIR_PERMISSION = 0755
 
+    FIELD_ORDERING = {
+      "environment" => 5,
+      "region" => 10,
+      "instance_id" => 15,
+      "instance_roles" => 20,
+      "container_name" => 30,
+      "source" => 25,
+      "severity" => 30,
+      "message" => 1000
+    }
+
+    USE_FIELDS = {
+      "environment" => "env",
+      "region" => "reg",
+      "instance_id" => "i",
+      "instance_roles" => "role",
+      "source" => "src",
+      "container_name" => "cont",
+      "message" => "msg",
+      "hostname" => "h",
+      "thread" => "thread",
+      "severity" => "s"
+    }
+
     def start
       super
     end
@@ -44,14 +68,39 @@ module Fluent
         else
           "#{tag}-MISSING"
         end
+    def format_record(time, record)
+      time_formatted = begin
+        Time.at(time).to_datetime.strftime(time_format)
+      rescue StandardError => e
+        'unknown'
+      end
+
+      sorted_fields = record.sort_by do |key, val|
+        [FIELD_ORDERING.fetch(key, 999), key]
+      end.map do |key, val|
+        if %w(@timestamp time).include?(key)
+          begin
+            time_formatted = Time.parse(val).strftime(time_format)
+          rescue StandardError => e
+            # Do nothing
+          end
+        elsif USE_FIELDS.has_key?(key)
+          "#{USE_FIELDS.fetch(key)}=#{val.to_s.strip}"
+        end
+      end.compact
+
+      if sorted_fields.empty?
+        "t=#{time_formatted} #{record}"
+      else
+        (["t=#{time_formatted}"] + sorted_fields).join(' ')
       end
     end
 
     def write(chunk)
-      output = Hash.new([])
+      output = Hash.new {[]}
 
       chunk.msgpack_each do |(tag, time, record)|
-        output[path_for_record(record)] << [time.utc.strftime(time_format), record.to_s].join(' ')
+        output[path_for_record(record)] += [format_record(time, record)]
       end
 
       output.each do |path, data|
